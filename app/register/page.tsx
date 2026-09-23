@@ -7,17 +7,56 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, Mail, Lock, User, ArrowRight, Check } from 'lucide-react';
+import { Brain, Mail, Lock, User, ArrowRight, Check, AlertCircle } from 'lucide-react';
+import { supabase } from '@/lib/supabase/client';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
     setLoading(true);
-    // Phase 2 will replace this with real Supabase auth
-    setTimeout(() => router.push('/onboarding'), 800);
+
+    const formData = new FormData(e.currentTarget);
+    const fullName = (formData.get('name') as string)?.trim();
+    const email = (formData.get('email') as string)?.trim().toLowerCase();
+    const password = formData.get('password') as string;
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data.user && !data.session) {
+      setSuccessMessage(
+        'Account created! Please check your email to confirm your account before signing in.'
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (data.session) {
+      router.push('/onboarding');
+      return;
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -76,6 +115,27 @@ export default function RegisterPage() {
               </p>
             </CardHeader>
             <CardContent>
+              {error && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-danger/20 bg-danger/5 p-3">
+                  <AlertCircle className="h-4 w-4 text-danger shrink-0 mt-0.5" />
+                  <p className="text-sm text-danger">{error}</p>
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-success/20 bg-success/5 p-3">
+                  <Check className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                  <div className="text-sm text-success">
+                    <p className="font-medium">{successMessage}</p>
+                    <p className="mt-1">
+                      <Link href="/login" className="underline font-semibold">
+                        Click here to sign in
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -83,6 +143,7 @@ export default function RegisterPage() {
                     <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="name"
+                      name="name"
                       type="text"
                       placeholder="John Doe"
                       className="pl-9"
@@ -96,6 +157,7 @@ export default function RegisterPage() {
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
+                      name="email"
                       type="email"
                       placeholder="you@example.com"
                       className="pl-9"
@@ -109,6 +171,7 @@ export default function RegisterPage() {
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="password"
+                      name="password"
                       type="password"
                       placeholder="••••••••"
                       className="pl-9"

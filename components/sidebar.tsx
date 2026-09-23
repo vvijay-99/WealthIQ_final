@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -40,6 +41,15 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Demo User';
+  const displayEmail = user?.email || 'demo@wealthiq.ai';
+  const initials = displayName
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'DU';
 
   return (
     <>
@@ -121,11 +131,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="border-t border-sidebar-border px-6 py-4">
           <div className="flex items-center gap-2 rounded-lg bg-sidebar-border/50 px-3 py-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-bold text-white">
-              DU
+              {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium">Demo User</p>
-              <p className="truncate text-xs text-sidebar-muted">demo@wealthiq.ai</p>
+              <p className="truncate text-sm font-medium">{displayName}</p>
+              <p className="truncate text-xs text-sidebar-muted">{displayEmail}</p>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,9 +18,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Redirect if already authenticated
-  if (authState === 'authenticated') {
-    router.replace('/dashboard');
-  }
+  useEffect(() => {
+    if (authState === 'authenticated') {
+      router.replace('/dashboard');
+    }
+  }, [authState, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -39,7 +41,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/dashboard');
+    router.replace('/dashboard');
   };
 
   return (

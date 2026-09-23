@@ -27,21 +27,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>('loading');
 
   useEffect(() => {
+    let mounted = true;
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthState(session ? 'authenticated' : 'unauthenticated');
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        if (error || !data?.session) {
+          setSession(null);
+          setAuthState('unauthenticated');
+        } else {
+          setSession(data.session);
+          setAuthState('authenticated');
+        }
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSession(null);
+        setAuthState('unauthenticated');
+      });
 
     // Listen for auth changes
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        setAuthState(session ? 'authenticated' : 'unauthenticated');
-      })();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      if (!mounted) return;
+      setSession(currentSession);
+      setAuthState(currentSession ? 'authenticated' : 'unauthenticated');
     });
 
     return () => {
+      mounted = false;
       listener.subscription.unsubscribe();
     };
   }, []);
@@ -53,9 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    setSession(data.session);
-    setAuthState(data.session ? 'authenticated' : 'unauthenticated');
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data?.session) {
+        setSession(null);
+        setAuthState('unauthenticated');
+      } else {
+        setSession(data.session);
+        setAuthState('authenticated');
+      }
+    } catch {
+      setSession(null);
+      setAuthState('unauthenticated');
+    }
   }, []);
 
   return (
