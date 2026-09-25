@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, Mail, Lock, User, ArrowRight, Check, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Check, AlertCircle } from 'lucide-react';
+import { WealthIQLogo } from '@/components/wealthiq-logo';
 import { supabase } from '@/lib/supabase/client';
 
 export default function RegisterPage() {
@@ -65,12 +66,7 @@ export default function RegisterPage() {
       <div className="relative hidden flex-1 flex-col justify-between bg-sidebar p-12 text-sidebar-foreground lg:flex">
         <div className="absolute inset-0 bg-gradient-to-br from-sidebar-accent/20 to-transparent" />
         <div className="relative">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-accent">
-              <Brain className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold">WealthIQ</span>
-          </Link>
+          <WealthIQLogo variant="full" size="md" theme="sidebar" href="/" />
         </div>
         <div className="relative space-y-4">
           <h2 className="text-3xl font-bold leading-tight">
@@ -99,12 +95,7 @@ export default function RegisterPage() {
       <div className="flex flex-1 items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 lg:hidden">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                <Brain className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold">WealthIQ</span>
-            </Link>
+            <WealthIQLogo variant="full" size="md" href="/" />
           </div>
 
           <Card>

@@ -16,10 +16,10 @@ import {
   BarChart3,
   User,
   Settings,
-  Brain,
   X,
   Wallet,
 } from 'lucide-react';
+import { WealthIQLogo } from '@/components/wealthiq-logo';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -77,20 +77,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-6">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-accent">
-              <Brain className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <span className="text-lg font-bold tracking-tight">WealthIQ</span>
-              <span className="block text-[10px] text-sidebar-muted">
-                Financial Health AI
-              </span>
-            </div>
-          </Link>
+          <WealthIQLogo variant="full" size="md" theme="sidebar" href="/dashboard" />
           <button
             onClick={onClose}
             className="text-sidebar-muted hover:text-sidebar-foreground lg:hidden"
+            aria-label="Close sidebar"
           >
             <X className="h-5 w-5" />
           </button>

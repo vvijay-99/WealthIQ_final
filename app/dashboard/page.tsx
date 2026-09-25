@@ -11,6 +11,7 @@ import { ForecastChart } from '@/components/forecast-chart';
 import { ExpenseChart } from '@/components/expense-chart';
 import { MLPredictionCard } from '@/components/ml-prediction-card';
 import { LoadingState } from '@/components/state-components';
+import { BrandedLoadingScreen } from '@/components/branded-loading-screen';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -368,7 +369,7 @@ export default function DashboardPage() {
 
       {loading && !hasInitialData ? (
         <div className="mt-8">
-          <LoadingState message="Loading your financial dashboard..." />
+          <BrandedLoadingScreen message="Loading your financial dashboard..." />
         </div>
       ) : (
         <>

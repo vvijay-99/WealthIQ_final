@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { LoadingState } from '@/components/state-components';
+import { BrandedLoadingScreen } from '@/components/branded-loading-screen';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,11 +20,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [authState, router]);
 
   if (authState === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <LoadingState message="Loading your dashboard..." />
-      </div>
-    );
+    return <BrandedLoadingScreen fullScreen message="Loading your financial dashboard..." />;
   }
 
   if (authState === 'unauthenticated') {
