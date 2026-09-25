@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { PageHeader } from '@/components/page-header';
 import { MetricCard } from '@/components/metric-card';
@@ -63,6 +63,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasInitialData, setHasInitialData] = useState(false);
+
+  const hasLoadedInitialRef = useRef(false);
+  const evaluateNotificationsRef = useRef(evaluateNotifications);
+  evaluateNotificationsRef.current = evaluateNotifications;
 
   // Raw database records
   const [incomeRecords, setIncomeRecords] = useState<IncomeRow[]>([]);
@@ -92,10 +97,13 @@ export default function DashboardPage() {
 
   const fetchDashboardData = useCallback(
     async (userId: string, isManualRefresh = false) => {
+      const isInitial = !hasLoadedInitialRef.current;
       if (isManualRefresh) {
         setRefreshing(true);
-      } else {
+      } else if (isInitial) {
         setLoading(true);
+      } else {
+        setRefreshing(true);
       }
       setErrorMessage(null);
 
@@ -188,8 +196,11 @@ export default function DashboardPage() {
         setRecommendations(recommendationsResult);
         setMlPrediction(mlResult);
 
-        // Step 4: Evaluate real in-app notifications
-        evaluateNotifications(
+        hasLoadedInitialRef.current = true;
+        setHasInitialData(true);
+
+        // Step 4: Evaluate real in-app notifications via stable ref
+        evaluateNotificationsRef.current(
           finData,
           evaluation.features,
           evaluation.health_score,
@@ -208,8 +219,13 @@ export default function DashboardPage() {
         setRefreshing(false);
       }
     },
-    [evaluateNotifications]
+    []
   );
+
+  const handleRefresh = useCallback(() => {
+    if (refreshing || loading || !user?.id) return;
+    fetchDashboardData(user.id, true);
+  }, [refreshing, loading, user?.id, fetchDashboardData]);
 
   useEffect(() => {
     if (user?.id) {
@@ -335,10 +351,10 @@ export default function DashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => user?.id && fetchDashboardData(user.id, true)}
+            onClick={handleRefresh}
             disabled={loading || refreshing}
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={cn("mr-2 h-4 w-4", refreshing && "animate-spin")} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
           <Button asChild>
@@ -361,7 +377,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading && !hasInitialData ? (
         <div className="mt-8">
           <LoadingState message="Loading your financial dashboard..." />
         </div>

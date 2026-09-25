@@ -20,12 +20,14 @@ import {
   Settings,
   ArrowRight,
   ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function NotificationDropdown() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
   const {
     notifications,
     unreadCount,
@@ -34,6 +36,21 @@ export function NotificationDropdown() {
     clearNotification,
     clearAll,
   } = useNotifications();
+
+  const handleMarkAllAsRead = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (markingAllRead || unreadCount === 0) return;
+
+    setMarkingAllRead(true);
+    try {
+      await markAllAsRead();
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
 
   const handleNotificationClick = (notification: InAppNotification) => {
     markAsRead(notification.id);
@@ -108,11 +125,21 @@ export function NotificationDropdown() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={markAllAsRead}
-                  className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground"
+                  onClick={handleMarkAllAsRead}
+                  disabled={markingAllRead}
+                  className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground disabled:opacity-60"
                 >
-                  <CheckCheck className="h-3.5 w-3.5 mr-1" />
-                  Mark all read
+                  {markingAllRead ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      Marking all read...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCheck className="h-3.5 w-3.5 mr-1" />
+                      Mark all read
+                    </>
+                  )}
                 </Button>
               )}
               <Button

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import type { FinancialFeatures, HealthCategory, RiskLevel } from '@/lib/types';
 import type { FinancialData } from '@/lib/financial-engine';
@@ -32,7 +32,7 @@ interface NotificationContextValue {
   preferences: NotificationPreferences;
   updatePreferences: (prefs: Partial<NotificationPreferences>) => void;
   markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
+  markAllAsRead: () => Promise<void> | void;
   clearNotification: (id: string) => void;
   clearAll: () => void;
   evaluateNotifications: (
@@ -81,11 +81,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
 
+  const notificationsRef = useRef<InAppNotification[]>(notifications);
+  notificationsRef.current = notifications;
+
+  const preferencesRef = useRef<NotificationPreferences>(preferences);
+  preferencesRef.current = preferences;
+
   // Load preferences and notifications whenever the authenticated user changes
   useEffect(() => {
     if (!userId) {
       setNotifications([]);
+      notificationsRef.current = [];
       setPreferences(DEFAULT_PREFERENCES);
+      preferencesRef.current = DEFAULT_PREFERENCES;
       return;
     }
 
@@ -93,12 +101,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       const savedPrefs = localStorage.getItem(getPrefsStorageKey(userId));
       if (savedPrefs) {
-        setPreferences({ ...DEFAULT_PREFERENCES, ...JSON.parse(savedPrefs) });
+        const parsed = { ...DEFAULT_PREFERENCES, ...JSON.parse(savedPrefs) };
+        setPreferences(parsed);
+        preferencesRef.current = parsed;
       } else {
         setPreferences(DEFAULT_PREFERENCES);
+        preferencesRef.current = DEFAULT_PREFERENCES;
       }
     } catch {
       setPreferences(DEFAULT_PREFERENCES);
+      preferencesRef.current = DEFAULT_PREFERENCES;
     }
 
     // 2. Load User Notifications
@@ -108,13 +120,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const parsed = JSON.parse(savedNotifs);
         if (Array.isArray(parsed)) {
           // Filter to guarantee user isolation
-          setNotifications(parsed.filter((n) => n.userId === userId));
+          const userNotifs = parsed.filter((n) => n.userId === userId);
+          setNotifications(userNotifs);
+          notificationsRef.current = userNotifs;
         }
       } else {
         setNotifications([]);
+        notificationsRef.current = [];
       }
     } catch {
       setNotifications([]);
+      notificationsRef.current = [];
     }
   }, [userId]);
 
@@ -123,6 +139,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     (newNotifs: InAppNotification[]) => {
       if (!userId) return;
       setNotifications(newNotifs);
+      notificationsRef.current = newNotifs;
       try {
         localStorage.setItem(getNotifsStorageKey(userId), JSON.stringify(newNotifs));
       } catch (err) {
@@ -138,6 +155,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (!userId) return;
       setPreferences((prev) => {
         const updated = { ...prev, ...newPrefs };
+        preferencesRef.current = updated;
         try {
           localStorage.setItem(getPrefsStorageKey(userId), JSON.stringify(updated));
         } catch (err) {
@@ -152,30 +170,65 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   // Mark single notification as read
   const markAsRead = useCallback(
     (id: string) => {
-      persistNotifications(
-        notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
+      if (!userId) return;
+      setNotifications((prev) => {
+        const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+        notificationsRef.current = updated;
+        try {
+          localStorage.setItem(getNotifsStorageKey(userId), JSON.stringify(updated));
+        } catch (err) {
+          console.warn('Failed to save notifications to localStorage:', err);
+        }
+        return updated;
+      });
     },
-    [notifications, persistNotifications]
+    [userId]
   );
 
   // Mark all notifications as read
-  const markAllAsRead = useCallback(() => {
-    persistNotifications(notifications.map((n) => ({ ...n, read: true })));
-  }, [notifications, persistNotifications]);
+  const markAllAsRead = useCallback(async () => {
+    if (!userId) return;
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.read ? n : { ...n, read: true }));
+      notificationsRef.current = updated;
+      try {
+        localStorage.setItem(getNotifsStorageKey(userId), JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Failed to save notifications to localStorage:', err);
+      }
+      return updated;
+    });
+  }, [userId]);
 
   // Clear single notification
   const clearNotification = useCallback(
     (id: string) => {
-      persistNotifications(notifications.filter((n) => n.id !== id));
+      if (!userId) return;
+      setNotifications((prev) => {
+        const updated = prev.filter((n) => n.id !== id);
+        notificationsRef.current = updated;
+        try {
+          localStorage.setItem(getNotifsStorageKey(userId), JSON.stringify(updated));
+        } catch (err) {
+          console.warn('Failed to save notifications to localStorage:', err);
+        }
+        return updated;
+      });
     },
-    [notifications, persistNotifications]
+    [userId]
   );
 
   // Clear all notifications
   const clearAll = useCallback(() => {
-    persistNotifications([]);
-  }, [persistNotifications]);
+    if (!userId) return;
+    setNotifications([]);
+    notificationsRef.current = [];
+    try {
+      localStorage.setItem(getNotifsStorageKey(userId), JSON.stringify([]));
+    } catch (err) {
+      console.warn('Failed to save notifications to localStorage:', err);
+    }
+  }, [userId]);
 
   // Unread count
   const unreadCount = useMemo(() => {
@@ -225,13 +278,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const newNotifsToAdd: InAppNotification[] = [];
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const currentPrefs = preferencesRef.current;
+      const currentNotifs = notificationsRef.current;
 
       // -------------------------------------------------------------------
       // 1. HEALTH SCORE ALERT
       // Trigger: If enabled, fires when category transitions or score shifts >= 5 pts,
       // or if score enters Weak/Critical territory.
       // -------------------------------------------------------------------
-      if (preferences.scoreAlerts) {
+      if (currentPrefs.scoreAlerts) {
         const scoreChangedSignificantly =
           lastState.score !== undefined && Math.abs(score - lastState.score) >= 5;
         const categoryChanged =
@@ -240,7 +295,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         // Fingerprint dedup key for score alert
         const scoreDedupKey = `hs_${category}_${Math.floor(score / 5)}`;
-        const alreadyExists = notifications.some((n) => n.dedupKey === scoreDedupKey);
+        const alreadyExists = currentNotifs.some((n) => n.dedupKey === scoreDedupKey);
 
         if ((scoreChangedSignificantly || categoryChanged || isVulnerable) && !alreadyExists) {
           let title = `Financial Health Alert: ${category} (${score}/100)`;
@@ -279,10 +334,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // 2. SPENDING RISK WARNING
       // Trigger: If enabled, fires when spendingRisk is High (or transitions to Medium/High).
       // -------------------------------------------------------------------
-      if (preferences.spendingAlerts) {
+      if (currentPrefs.spendingAlerts) {
         if (spendingRisk === 'High') {
           const riskDedupKey = `risk_high_${Math.round(features.expense_ratio * 10)}_${Math.round(features.debt_to_income * 10)}`;
-          const alreadyExists = notifications.some((n) => n.dedupKey === riskDedupKey);
+          const alreadyExists = currentNotifs.some((n) => n.dedupKey === riskDedupKey);
 
           if (!alreadyExists) {
             let reason = 'Operating outflow exceeds safe thresholds.';
@@ -313,9 +368,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       // 3. MONTHLY DIGEST
       // Trigger: If enabled, honestly generates exactly ONE monthly summary per calendar month.
       // -------------------------------------------------------------------
-      if (preferences.monthlyDigest) {
+      if (currentPrefs.monthlyDigest) {
         const digestDedupKey = `digest_${currentMonthKey}`;
-        const alreadyExists = notifications.some((n) => n.dedupKey === digestDedupKey);
+        const alreadyExists = currentNotifs.some((n) => n.dedupKey === digestDedupKey);
 
         if (!alreadyExists) {
           const monthName = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -339,7 +394,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // If new notifications were generated, prepend and persist
       if (newNotifsToAdd.length > 0) {
-        const updated = [...newNotifsToAdd, ...notifications].slice(0, 30); // Keep latest 30
+        const updated = [...newNotifsToAdd, ...currentNotifs].slice(0, 30); // Keep latest 30
         persistNotifications(updated);
       }
 
@@ -358,7 +413,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         console.warn('Failed to update last state:', err);
       }
     },
-    [userId, preferences, notifications, persistNotifications]
+    [userId, persistNotifications]
   );
 
   return (
