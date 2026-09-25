@@ -107,6 +107,10 @@ export default function DashboardPage() {
       setErrorMessage(null);
 
       try {
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Request timed out while loading dashboard data.')), 15000)
+        );
+
         const [
           incomeRes,
           expenseRes,
@@ -115,31 +119,22 @@ export default function DashboardPage() {
           investRes,
           fdRes,
           scoreRes,
-        ] = await Promise.all([
-          (supabase.from('income_records') as any)
-            .select('*')
-            .eq('user_id', userId),
-          (supabase.from('expense_records') as any)
-            .select('*')
-            .eq('user_id', userId),
-          (supabase.from('savings_records') as any)
-            .select('*')
-            .eq('user_id', userId),
-          (supabase.from('debts') as any)
-            .select('*')
-            .eq('user_id', userId),
-          (supabase.from('investments') as any)
-            .select('*')
-            .eq('user_id', userId),
-          (supabase.from('fixed_deposits') as any)
-            .select('*')
-            .eq('user_id', userId),
-          (supabase.from('financial_scores') as any)
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
+        ] = await Promise.race([
+          Promise.all([
+            (supabase.from('income_records') as any).select('*').eq('user_id', userId),
+            (supabase.from('expense_records') as any).select('*').eq('user_id', userId),
+            (supabase.from('savings_records') as any).select('*').eq('user_id', userId),
+            (supabase.from('debts') as any).select('*').eq('user_id', userId),
+            (supabase.from('investments') as any).select('*').eq('user_id', userId),
+            (supabase.from('fixed_deposits') as any).select('*').eq('user_id', userId),
+            (supabase.from('financial_scores') as any)
+              .select('*')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+          ]),
+          timeoutPromise,
         ]);
 
         const inRecords = (incomeRes.data as IncomeRow[]) || [];
@@ -195,9 +190,6 @@ export default function DashboardPage() {
         setRecommendations(recommendationsResult);
         setMlPrediction(mlResult);
 
-        hasLoadedInitialRef.current = true;
-        setHasInitialData(true);
-
         // Step 4: Evaluate real in-app notifications via stable ref
         evaluateNotificationsRef.current(
           finData,
@@ -214,6 +206,8 @@ export default function DashboardPage() {
             : 'An unexpected error occurred while loading dashboard data.'
         );
       } finally {
+        hasLoadedInitialRef.current = true;
+        setHasInitialData(true);
         setLoading(false);
         setRefreshing(false);
       }

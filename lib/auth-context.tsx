@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session
     supabase.auth
       .getSession()
-      .then(async ({ data, error }) => {
+      .then(({ data, error }) => {
         if (!mounted) return;
         if (error || !data?.session) {
           setSession(null);
@@ -65,9 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setSession(data.session);
           setAuthState('authenticated');
-          if (data.session.user?.id) {
-            await fetchProfileForUser(data.session.user.id);
-          }
         }
       })
       .catch(() => {
@@ -77,14 +74,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthState('unauthenticated');
       });
 
-    // Listen for auth changes
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+    // Listen for auth changes - keep lightweight & decoupled from db queries
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!mounted) return;
       setSession(currentSession);
       setAuthState(currentSession ? 'authenticated' : 'unauthenticated');
-      if (currentSession?.user?.id) {
-        await fetchProfileForUser(currentSession.user.id);
-      } else {
+      if (!currentSession) {
         setProfile(null);
       }
     });
@@ -93,7 +88,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [fetchProfileForUser]);
+  }, []);
+
+  // Fetch profile whenever authenticated user ID changes
+  useEffect(() => {
+    let mounted = true;
+    const userId = session?.user?.id;
+    if (userId) {
+      fetchProfileForUser(userId).then((p) => {
+        if (mounted && p) {
+          setProfile(p);
+        }
+      });
+    } else {
+      setProfile(null);
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [session?.user?.id, fetchProfileForUser]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
