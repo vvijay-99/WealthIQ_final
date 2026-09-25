@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -56,7 +56,7 @@ const riskTolerances = [
 ];
 
 export default function ProfilePage() {
-  const { user, authState, refreshProfile, refreshSession } = useAuth();
+  const { user, authState, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -71,6 +71,10 @@ export default function ProfilePage() {
     financial_goal: '',
     risk_tolerance: '',
   });
+
+  const loadedUserIdRef = useRef<string | null>(null);
+  const userMetadataRef = useRef(user?.user_metadata);
+  userMetadataRef.current = user?.user_metadata;
 
   const fetchProfile = useCallback(
     async (userId: string, showLoading = true) => {
@@ -105,7 +109,7 @@ export default function ProfilePage() {
           // If no row exists yet, initialize full_name from auth user metadata
           setFormData((prev) => ({
             ...prev,
-            full_name: user?.user_metadata?.full_name ?? '',
+            full_name: userMetadataRef.current?.full_name ?? '',
           }));
         }
       } catch (err: unknown) {
@@ -117,12 +121,15 @@ export default function ProfilePage() {
         if (showLoading) setLoading(false);
       }
     },
-    [user?.user_metadata?.full_name]
+    []
   );
 
   useEffect(() => {
     if (user?.id) {
-      fetchProfile(user.id);
+      if (loadedUserIdRef.current !== user.id) {
+        loadedUserIdRef.current = user.id;
+        fetchProfile(user.id);
+      }
     } else if (authState === 'unauthenticated') {
       setLoading(false);
     }
@@ -152,9 +159,10 @@ export default function ProfilePage() {
       return;
     }
 
+    const trimmedFullName = formData.full_name.trim();
     const payload = {
       user_id: user.id,
-      full_name: formData.full_name.trim() || null,
+      full_name: trimmedFullName || null,
       age: parsedAge,
       country: formData.country.trim() || null,
       employment_type: formData.employment_type || null,
@@ -164,6 +172,7 @@ export default function ProfilePage() {
     };
 
     try {
+      // 1. Supabase upsert
       const { data, error } = await (supabase.from('profiles') as any)
         .upsert(payload, { onConflict: 'user_id' })
         .select()
@@ -175,11 +184,12 @@ export default function ProfilePage() {
         return;
       }
 
-      // Sync full_name to auth user_metadata as well
-      if (payload.full_name) {
+      // 2. Sync full_name to auth user_metadata only if actually changed
+      const currentAuthName = user.user_metadata?.full_name ?? '';
+      if (trimmedFullName && trimmedFullName !== currentAuthName) {
         try {
           await supabase.auth.updateUser({
-            data: { full_name: payload.full_name },
+            data: { full_name: trimmedFullName },
           });
         } catch (authErr) {
           console.warn('Could not sync full_name to auth metadata:', authErr);
@@ -198,12 +208,11 @@ export default function ProfilePage() {
           financial_goal: saved.financial_goal ?? '',
           risk_tolerance: saved.risk_tolerance ?? '',
         });
+        // 3. Update AuthContext directly in memory using the exact row returned by upsert
+        await refreshProfile(saved);
+        // 4. Promptly transition out of saving state and show success
+        setSaving(false);
         setSuccessMessage('Profile saved successfully.');
-        // Re-fetch profile from database to confirm and reflect saved values
-        await fetchProfile(user.id, false);
-        // Refresh AuthContext profile and session so navbar and sidebar update immediately!
-        await refreshProfile();
-        await refreshSession();
       }
     } catch (err: unknown) {
       console.error('Save profile exception:', err);

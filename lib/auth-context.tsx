@@ -16,7 +16,7 @@ interface AuthContextValue {
   authState: AuthState;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (updatedProfile?: ProfileRow) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -115,18 +115,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthState('unauthenticated');
   }, []);
 
-  const refreshProfile = useCallback(async () => {
-    let currentUserId = session?.user?.id;
-    if (!currentUserId) {
-      const { data } = await supabase.auth.getSession();
-      currentUserId = data.session?.user?.id;
-    }
-    if (currentUserId) {
-      await fetchProfileForUser(currentUserId);
-    } else {
-      setProfile(null);
-    }
-  }, [session, fetchProfileForUser]);
+  const refreshProfile = useCallback(
+    async (updatedProfile?: ProfileRow) => {
+      if (updatedProfile) {
+        setProfile(updatedProfile);
+        return;
+      }
+      let currentUserId = session?.user?.id;
+      if (!currentUserId) {
+        const { data } = await supabase.auth.getSession();
+        currentUserId = data.session?.user?.id;
+      }
+      if (currentUserId) {
+        await fetchProfileForUser(currentUserId);
+      } else {
+        setProfile(null);
+      }
+    },
+    [session, fetchProfileForUser]
+  );
 
   const refreshSession = useCallback(async () => {
     try {
