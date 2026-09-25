@@ -1,7 +1,8 @@
 'use client';
 
-import { Menu, Bell, Search } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { NotificationDropdown } from '@/components/notification-dropdown';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,7 @@ interface NavbarProps {
 
 export function Navbar({ onMenuClick }: NavbarProps) {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
 
   const handleSignOut = async () => {
     try {
@@ -31,14 +32,20 @@ export function Navbar({ onMenuClick }: NavbarProps) {
     }
   };
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Demo User';
+  const displayName =
+    profile?.full_name?.trim() ||
+    user?.user_metadata?.full_name?.trim() ||
+    user?.email?.split('@')[0] ||
+    'Demo User';
   const displayEmail = user?.email || 'demo@wealthiq.ai';
-  const initials = displayName
-    .split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || 'DU';
+  const initials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((n: string) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'DU';
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-background/80 px-4 backdrop-blur-md lg:px-6">
       <button
@@ -59,10 +66,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-3">
-        <button className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger" />
-        </button>
+        <NotificationDropdown />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

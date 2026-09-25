@@ -18,10 +18,12 @@ import {
   Settings,
   Brain,
   X,
+  Wallet,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/income', label: 'Income', icon: Wallet },
   { href: '/expenses', label: 'Expenses', icon: TrendingDown },
   { href: '/savings', label: 'Savings', icon: PiggyBank },
   { href: '/debts', label: 'Debts', icon: CreditCard },
@@ -41,15 +43,21 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
-  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Demo User';
+  const { user, profile } = useAuth();
+  const displayName =
+    profile?.full_name?.trim() ||
+    user?.user_metadata?.full_name?.trim() ||
+    user?.email?.split('@')[0] ||
+    'Demo User';
   const displayEmail = user?.email || 'demo@wealthiq.ai';
-  const initials = displayName
-    .split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || 'DU';
+  const initials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((n: string) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'DU';
 
   return (
     <>

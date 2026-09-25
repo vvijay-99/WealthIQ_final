@@ -28,22 +28,24 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { Plus, PiggyBank, Shield, Trash2, Pencil, CheckCircle2, AlertCircle, Loader2, X, TrendingUp } from 'lucide-react';
+import { Plus, Wallet, Trash2, Pencil, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
 
-type SavingsRow = Database['public']['Tables']['savings_records']['Row'];
+type IncomeRow = Database['public']['Tables']['income_records']['Row'];
 
-const savingsTypes = [
-  'Total Savings',
-  'Emergency Fund',
-  'Monthly Savings',
-  'Goal Savings',
-  'Retirement Savings',
+const incomeTypes = [
+  'Salary',
+  'Freelance',
+  'Business',
+  'Investments',
+  'Rental',
+  'Bonus',
+  'Pension',
   'Other',
 ];
 
-export default function SavingsPage() {
+export default function IncomePage() {
   const { user, authState } = useAuth();
-  const [records, setRecords] = useState<SavingsRow[]>([]);
+  const [records, setRecords] = useState<IncomeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function SavingsPage() {
 
   const [formData, setFormData] = useState({
     amount: '',
-    savings_type: 'Total Savings',
+    income_type: 'Salary',
     record_date: new Date().toISOString().split('T')[0],
   });
 
@@ -62,22 +64,22 @@ export default function SavingsPage() {
       if (showLoading) setLoading(true);
       setErrorMessage(null);
       try {
-        const { data, error } = await (supabase.from('savings_records') as any)
+        const { data, error } = await (supabase.from('income_records') as any)
           .select('*')
           .eq('user_id', userId)
           .order('record_date', { ascending: false });
 
         if (error) {
-          console.error('Error fetching savings records:', error);
-          setErrorMessage(error.message || 'Failed to load savings records.');
+          console.error('Error fetching income records:', error);
+          setErrorMessage(error.message || 'Failed to load income records.');
           return;
         }
 
-        setRecords((data as SavingsRow[]) || []);
+        setRecords((data as IncomeRow[]) || []);
       } catch (err: unknown) {
-        console.error('Fetch savings exception:', err);
+        console.error('Fetch income records exception:', err);
         setErrorMessage(
-          err instanceof Error ? err.message : 'An unexpected error occurred loading savings.'
+          err instanceof Error ? err.message : 'An unexpected error occurred loading income records.'
         );
       } finally {
         if (showLoading) setLoading(false);
@@ -97,44 +99,39 @@ export default function SavingsPage() {
   const resetForm = () => {
     setFormData({
       amount: '',
-      savings_type: 'Total Savings',
+      income_type: 'Salary',
       record_date: new Date().toISOString().split('T')[0],
     });
     setEditingId(null);
   };
 
-  const handleStartEdit = (record: SavingsRow) => {
+  const handleStartEdit = (record: IncomeRow) => {
     setEditingId(record.id);
     setFormData({
       amount: String(record.amount),
-      savings_type: record.savings_type,
+      income_type: record.income_type,
       record_date: record.record_date,
     });
     setSuccessMessage(null);
     setErrorMessage(null);
-    window.scrollTo({ top: 250, behavior: 'smooth' });
+    window.scrollTo({ top: 200, behavior: 'smooth' });
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) {
-      setErrorMessage('You must be signed in to manage savings.');
+      setErrorMessage('You must be signed in to manage income records.');
       return;
     }
 
     const numericAmount = parseFloat(formData.amount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
-      setErrorMessage('Please enter a valid positive savings amount.');
-      return;
-    }
-
-    if (!formData.savings_type) {
-      setErrorMessage('Please select a savings type.');
+      setErrorMessage('Please enter a valid positive income amount.');
       return;
     }
 
     if (!formData.record_date) {
-      setErrorMessage('Please select a valid date.');
+      setErrorMessage('Please select a valid record date.');
       return;
     }
 
@@ -142,47 +139,49 @@ export default function SavingsPage() {
     setSuccessMessage(null);
     setErrorMessage(null);
 
-    const payload = {
-      amount: numericAmount,
-      savings_type: formData.savings_type,
-      record_date: formData.record_date,
-    };
-
     try {
       if (editingId) {
-        const { error } = await (supabase.from('savings_records') as any)
-          .update(payload)
+        // Update existing record
+        const { error } = await (supabase.from('income_records') as any)
+          .update({
+            amount: numericAmount,
+            income_type: formData.income_type,
+            record_date: formData.record_date,
+          })
           .eq('id', editingId)
           .eq('user_id', user.id);
 
         if (error) {
-          console.error('Error updating savings record:', error);
-          setErrorMessage(error.message || 'Failed to update savings record.');
+          console.error('Error updating income record:', error);
+          setErrorMessage(error.message || 'Failed to update income record.');
           return;
         }
 
-        setSuccessMessage('Savings record updated successfully.');
+        setSuccessMessage('Income record updated successfully.');
       } else {
-        const { error } = await (supabase.from('savings_records') as any).insert({
-          ...payload,
+        // Create new record
+        const { error } = await (supabase.from('income_records') as any).insert({
           user_id: user.id,
+          amount: numericAmount,
+          income_type: formData.income_type,
+          record_date: formData.record_date,
         });
 
         if (error) {
-          console.error('Error adding savings record:', error);
-          setErrorMessage(error.message || 'Failed to add savings record.');
+          console.error('Error creating income record:', error);
+          setErrorMessage(error.message || 'Failed to create income record.');
           return;
         }
 
-        setSuccessMessage('Savings record added successfully.');
+        setSuccessMessage('Income record added successfully.');
       }
 
       resetForm();
       await fetchRecords(user.id, false);
     } catch (err: unknown) {
-      console.error('Savings submission exception:', err);
+      console.error('Income record submission error:', err);
       setErrorMessage(
-        err instanceof Error ? err.message : 'An unexpected error occurred saving savings.'
+        err instanceof Error ? err.message : 'An unexpected error occurred saving income record.'
       );
     } finally {
       setSaving(false);
@@ -196,22 +195,22 @@ export default function SavingsPage() {
     setErrorMessage(null);
 
     try {
-      const { error } = await (supabase.from('savings_records') as any)
+      const { error } = await (supabase.from('income_records') as any)
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error deleting savings record:', error);
-        setErrorMessage(error.message || 'Failed to delete savings record.');
+        console.error('Error deleting income record:', error);
+        setErrorMessage(error.message || 'Failed to delete income record.');
         return;
       }
 
-      setSuccessMessage('Savings record deleted successfully.');
+      setSuccessMessage('Income record deleted successfully.');
       if (editingId === id) resetForm();
       await fetchRecords(user.id, false);
     } catch (err: unknown) {
-      console.error('Delete savings exception:', err);
+      console.error('Delete income record error:', err);
       setErrorMessage(
         err instanceof Error ? err.message : 'An unexpected error occurred deleting record.'
       );
@@ -220,69 +219,51 @@ export default function SavingsPage() {
     }
   };
 
-  const totalSavings = records
-    .filter((r) => r.savings_type === 'Total Savings')
-    .reduce((sum, r) => sum + Number(r.amount), 0) || records.reduce((sum, r) => sum + Number(r.amount), 0);
-
-  const emergencyFund = records
-    .filter((r) => r.savings_type === 'Emergency Fund')
-    .reduce((sum, r) => sum + Number(r.amount), 0);
-
-  const monthlySavings = records
-    .filter((r) => r.savings_type === 'Monthly Savings')
-    .reduce((sum, r) => sum + Number(r.amount), 0);
+  const totalMonthlyIncome = records.reduce((sum, r) => sum + Number(r.amount), 0);
 
   return (
     <DashboardLayout>
       <PageHeader
-        title="Savings"
-        description="Track your savings and emergency fund."
+        title="Income"
+        description="Track your monthly earnings and income streams."
       >
         <Button
           onClick={() => {
             resetForm();
-            window.scrollTo({ top: 250, behavior: 'smooth' });
+            window.scrollTo({ top: 200, behavior: 'smooth' });
           }}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add Savings Record
+          Add Income
         </Button>
       </PageHeader>
 
-      {/* Summary */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Summary Cards */}
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <MetricCard
-          title="Total Savings"
-          value={formatCurrency(totalSavings)}
-          icon={<PiggyBank className="h-4 w-4" />}
+          title="Total Monthly Income"
+          value={formatCurrency(totalMonthlyIncome)}
+          icon={<Wallet className="h-4 w-4" />}
           accent="success"
         />
         <MetricCard
-          title="Emergency Fund"
-          value={formatCurrency(emergencyFund)}
-          subtitle={emergencyFund > 0 ? 'Allocated safety reserve' : 'No reserve allocated'}
-          icon={<Shield className="h-4 w-4" />}
-          accent={emergencyFund > 0 ? 'success' : 'warning'}
-        />
-        <MetricCard
-          title="Monthly Savings"
-          value={formatCurrency(monthlySavings)}
-          icon={<TrendingUp className="h-4 w-4" />}
-          accent="primary"
-        />
-        <MetricCard
-          title="Active Records"
+          title="Income Streams"
           value={String(records.length)}
           accent="primary"
         />
+        <MetricCard
+          title="Primary Source"
+          value={records[0]?.income_type || '—'}
+          accent="neutral"
+        />
       </div>
 
-      {/* Add / Edit form */}
+      {/* Add / Edit Form */}
       <Card className="mt-6">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">
-              {editingId ? 'Edit Savings Record' : 'Add Savings Record'}
+              {editingId ? 'Edit Income Record' : 'Add New Income Record'}
             </CardTitle>
             {editingId && (
               <Button variant="ghost" size="sm" onClick={resetForm}>
@@ -307,19 +288,19 @@ export default function SavingsPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="sav-type">Savings Type</Label>
+                <Label htmlFor="income_type">Income Type</Label>
                 <Select
-                  value={formData.savings_type}
-                  onValueChange={(val) => setFormData((prev) => ({ ...prev, savings_type: val }))}
+                  value={formData.income_type}
+                  onValueChange={(val) => setFormData((prev) => ({ ...prev, income_type: val }))}
                 >
-                  <SelectTrigger id="sav-type">
+                  <SelectTrigger id="income_type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {savingsTypes.map((type) => (
+                    {incomeTypes.map((type) => (
                       <SelectItem key={type} value={type}>
                         {type}
                       </SelectItem>
@@ -329,11 +310,11 @@ export default function SavingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sav-amount">Amount (₹)</Label>
+                <Label htmlFor="amount">Amount (₹)</Label>
                 <Input
-                  id="sav-amount"
+                  id="amount"
                   type="number"
-                  placeholder="50000"
+                  placeholder="85000"
                   value={formData.amount}
                   onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
                   required
@@ -341,9 +322,9 @@ export default function SavingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sav-date">Date</Label>
+                <Label htmlFor="record_date">Date</Label>
                 <Input
-                  id="sav-date"
+                  id="record_date"
                   type="date"
                   value={formData.record_date}
                   onChange={(e) => setFormData((prev) => ({ ...prev, record_date: e.target.value }))}
@@ -352,7 +333,7 @@ export default function SavingsPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-3">
+            <div className="flex items-center gap-3 pt-2">
               <Button type="submit" disabled={saving || loading}>
                 {saving ? (
                   <>
@@ -366,7 +347,7 @@ export default function SavingsPage() {
                     ) : (
                       <Plus className="mr-2 h-4 w-4" />
                     )}
-                    {editingId ? 'Update Record' : 'Save Record'}
+                    {editingId ? 'Update Income' : 'Save Income'}
                   </>
                 )}
               </Button>
@@ -380,57 +361,57 @@ export default function SavingsPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Income Records Table */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="text-base">Savings Records</CardTitle>
+          <CardTitle className="text-base">Income History</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <LoadingState message="Loading savings records..." />
+            <LoadingState message="Loading income records..." />
           ) : records.length === 0 ? (
             <EmptyState
-              icon={<PiggyBank className="h-6 w-6" />}
-              title="No savings records found"
-              description="Add your first savings record to track your emergency fund and goals."
+              icon={<Wallet className="h-6 w-6" />}
+              title="No income records found"
+              description="Add your first income stream to track your monthly earnings."
             />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Income Type</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {records.map((sav) => (
-                  <TableRow key={sav.id}>
-                    <TableCell className="font-medium">{sav.savings_type}</TableCell>
+                {records.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell className="font-medium">{record.income_type}</TableCell>
                     <TableCell className="font-semibold text-success">
-                      {formatCurrency(Number(sav.amount))}
+                      {formatCurrency(Number(record.amount))}
                     </TableCell>
-                    <TableCell>{formatDate(sav.record_date)}</TableCell>
+                    <TableCell>{formatDate(record.record_date)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleStartEdit(sav)}
+                          onClick={() => handleStartEdit(record)}
                           title="Edit record"
-                          disabled={saving || deletingId === sav.id}
+                          disabled={saving || deletingId === record.id}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(sav.id)}
+                          onClick={() => handleDelete(record.id)}
                           title="Delete record"
-                          disabled={saving || deletingId === sav.id}
+                          disabled={saving || deletingId === record.id}
                         >
-                          {deletingId === sav.id ? (
+                          {deletingId === record.id ? (
                             <Loader2 className="h-4 w-4 animate-spin text-danger" />
                           ) : (
                             <Trash2 className="h-4 w-4 text-danger" />

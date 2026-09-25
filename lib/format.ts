@@ -3,33 +3,37 @@
 // ============================================================
 
 export function formatCurrency(value: number, currency = 'INR'): string {
+  const safeValue = isNaN(value) || value === null || value === undefined ? 0 : value;
   if (currency === 'INR') {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0,
-    }).format(value);
+    }).format(safeValue);
   }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(safeValue);
 }
 
 export function formatNumber(value: number, decimals = 0): string {
+  const safeValue = isNaN(value) || value === null || value === undefined ? 0 : value;
   return new Intl.NumberFormat('en-IN', {
     maximumFractionDigits: decimals,
     minimumFractionDigits: decimals,
-  }).format(value);
+  }).format(safeValue);
 }
 
 export function formatPercent(value: number, decimals = 1): string {
-  return `${(value * 100).toFixed(decimals)}%`;
+  const safeValue = isNaN(value) || value === null || value === undefined ? 0 : value;
+  return `${(safeValue * 100).toFixed(decimals)}%`;
 }
 
 export function formatPercentRaw(value: number, decimals = 1): string {
-  return `${value.toFixed(decimals)}%`;
+  const safeValue = isNaN(value) || value === null || value === undefined ? 0 : value;
+  return `${safeValue.toFixed(decimals)}%`;
 }
 
 export function formatDate(date: string | Date): string {
