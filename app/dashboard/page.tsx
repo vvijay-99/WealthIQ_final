@@ -9,7 +9,6 @@ import { RiskBadge } from '@/components/risk-badge';
 import { RecommendationCard } from '@/components/recommendation-card';
 import { ForecastChart } from '@/components/forecast-chart';
 import { ExpenseChart } from '@/components/expense-chart';
-import { DisclaimerBanner } from '@/components/disclaimer-banner';
 import { MLPredictionCard } from '@/components/ml-prediction-card';
 import { LoadingState } from '@/components/state-components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -365,10 +364,6 @@ export default function DashboardPage() {
           </Button>
         </div>
       </PageHeader>
-
-      <div className="mt-4">
-        <DisclaimerBanner />
-      </div>
 
       {errorMessage && (
         <div className="mt-4 flex items-start gap-3 rounded-lg border border-danger/20 bg-danger/5 p-4 text-danger">
